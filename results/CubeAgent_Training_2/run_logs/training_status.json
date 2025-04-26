@@ -1,0 +1,65 @@
+{
+    "CubeAgentRays": {
+        "checkpoints": [
+            {
+                "steps": 1331332,
+                "file_path": "results\\CubeAgent_Training_2\\CubeAgentRays\\CubeAgentRays-1331332.onnx",
+                "reward": null,
+                "creation_time": 1743380690.892703,
+                "auxillary_file_paths": [
+                    "results\\CubeAgent_Training_2\\CubeAgentRays\\CubeAgentRays-1331332.pt"
+                ]
+            },
+            {
+                "steps": 1499913,
+                "file_path": "results\\CubeAgent_Training_2\\CubeAgentRays\\CubeAgentRays-1499913.onnx",
+                "reward": null,
+                "creation_time": 1743380876.5498974,
+                "auxillary_file_paths": [
+                    "results\\CubeAgent_Training_2\\CubeAgentRays\\CubeAgentRays-1499913.pt"
+                ]
+            },
+            {
+                "steps": 1999960,
+                "file_path": "results\\CubeAgent_Training_2\\CubeAgentRays\\CubeAgentRays-1999960.onnx",
+                "reward": 0.75,
+                "creation_time": 1743381457.1408901,
+                "auxillary_file_paths": [
+                    "results\\CubeAgent_Training_2\\CubeAgentRays\\CubeAgentRays-1999960.pt"
+                ]
+            },
+            {
+                "steps": 2001624,
+                "file_path": "results\\CubeAgent_Training_2\\CubeAgentRays\\CubeAgentRays-2001624.onnx",
+                "reward": 0.75,
+                "creation_time": 1743381457.2847314,
+                "auxillary_file_paths": [
+                    "results\\CubeAgent_Training_2\\CubeAgentRays\\CubeAgentRays-2001624.pt"
+                ]
+            },
+            {
+                "steps": 2082846,
+                "file_path": "results\\CubeAgent_Training_2\\CubeAgentRays\\CubeAgentRays-2082846.onnx",
+                "reward": null,
+                "creation_time": 1743381643.8463178,
+                "auxillary_file_paths": [
+                    "results\\CubeAgent_Training_2\\CubeAgentRays\\CubeAgentRays-2082846.pt"
+                ]
+            }
+        ],
+        "final_checkpoint": {
+            "steps": 2082846,
+            "file_path": "results\\CubeAgent_Training_2\\CubeAgentRays.onnx",
+            "reward": null,
+            "creation_time": 1743381643.8463178,
+            "auxillary_file_paths": [
+                "results\\CubeAgent_Training_2\\CubeAgentRays\\CubeAgentRays-2082846.pt"
+            ]
+        }
+    },
+    "metadata": {
+        "stats_format_version": "0.3.0",
+        "mlagents_version": "0.30.0",
+        "torch_version": "1.7.1+cu110"
+    }
+}
