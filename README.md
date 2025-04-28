@@ -381,206 +381,199 @@ Creëer en configureer de agent die gaat leren. Dit is het centrale element dat 
         ```csharp
         using System.Collections.Generic;
         using UnityEngine;
-        using Unity.MLAgents;
+        using Unity.MLAgents;            
         using Unity.MLAgents.Sensors;
         using Unity.MLAgents.Actuators;
-        using System.Linq;
 
-        public class JumperAgent : Agent
+        public class JumperAgent : Agent 
         {
             // === INSPECTOR VARIABELEN ===
+
             [Header("Agent Componenten")]
-            public LayerMask groundLayer;     // Layer(s) die als grond tellen
-            public float jumpForce = 10.0f;   // Kracht voor de sprong
-            public float moveForce = 1.0f;    // Kracht voor horizontale beweging
+            public LayerMask groundLayer;               // Welke layer(s) is de grond?
+            public float jumpForce = 10.0f;             // Kracht van de sprong
+            public float moveForce = 1.0f;              // Kracht voor beweging
 
             [Header("Observatie Instellingen")]
-            public float observationDistance = 20f; // Hoe ver de agent zoekt naar obstakels
-            public float fallThreshold = -5.0f;     // Onder deze Y-positie eindigt de episode
+            public float fallThreshold = -5.0f;         // Y-positie waaronder de agent 'valt'
+
+            [Header("Reward Settings")] // Beloningen en straffen
+            public float aliveReward = 0.001f;          // Kleine beloning per stap om actief te blijven
+            public float jumpReward = 0.002f;           // Kleine beloning voor springen
+            public float distanceToTargetRewardScale = 0.1f; // Schaal voor beloning nabijheid target
+            public string targetTag = "Target";         // Tag voor de target objecten
+
+            [Header("Ground Check Settings")] 
+            public float groundCheckSphereRadius = 0.3f; // Radius van de sphere check
+            public float groundCheckDistance = 0.4f;     // Afstand van de sphere check
+            public float groundCheckVerticalOffset = 0.1f; // Start offset van de sphere check
 
             // ===  PRIVATE VARIABELEN ===
-            private Rigidbody rBody;
-            private bool isGrounded;
-            private Vector3 startPosition;     // Startpositie voor reset
+            private Rigidbody rBody;                    // De Rigidbody component
+            private bool isGrounded;                    // Staat de agent op de grond?
+            private Vector3 startPosition;              // Startpositie van de agent
 
             // === UNITY METHODEN ===
 
-            public override void Initialize() // Vervangt Start() voor ML-Agents initialisatie
+            // Initialisatie bij de start van de agent
+            public override void Initialize()
             {
                 rBody = GetComponent<Rigidbody>();
-                startPosition = transform.localPosition; // Sla startpositie op
-
-                // Stel Rigidbody constraints hier in
-                rBody.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ | RigidbodyConstraints.FreezeRotationY; // Beperk rotatie/kantelen
+                startPosition = transform.localPosition;
+                // Voorkom dat de agent omvalt
+                rBody.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ | RigidbodyConstraints.FreezeRotationY;
             }
 
+            // Wordt elke physics-stap uitgevoerd
             void FixedUpdate()
             {
-                isGrounded = CheckIfGrounded();
-                CheckIfFallen(); // Check of agent gevallen is
+                isGrounded = CheckIfGrounded(); // Check grondstatus
+                CheckIfFallen();                // Check of gevallen
+
+                // Beloning om actief te blijven
+                AddReward(aliveReward / (MaxStep > 0 ? MaxStep : 1000f));
+
+                // Beloning voor dichtbij het target zijn
+                RewardProximityToTarget();
             }
 
             // === ML-AGENTS METHODEN ===
 
+            // Reset de agent aan het begin van een nieuwe episode
             public override void OnEpisodeBegin()
             {
-                // Reset agent positie en snelheid
-                transform.localPosition = startPosition;
-                rBody.linearVelocity = Vector3.zero;
-                rBody.angularVelocity = Vector3.zero;
+                transform.localPosition = startPosition; // Terug naar startpositie
+                rBody.linearVelocity = Vector3.zero;     // Reset snelheid
+                rBody.angularVelocity = Vector3.zero;    // Reset rotatiesnelheid
             }
+
+            // Verzamelt de observaties (input) voor het neurale netwerk
             public override void CollectObservations(VectorSensor sensor)
             {
-                // --- Vind relevante obstakels ---
-                List<ObstacleMovement> nearbyObstacles = FindNearbyObstacles();
-                ObstacleMovement closestX = null;
-                ObstacleMovement closestZ = null;
-                float minXDist = observationDistance;
-                float minZDist = observationDistance;
+                // Voeg basis observaties toe die de agent nodig heeft voor beslissingen
+                sensor.AddObservation(isGrounded);                  // Weet of hij kan springen/bewegen
+                sensor.AddObservation(transform.localPosition.y);   // Weet zijn hoogte
+                sensor.AddObservation(rBody.linearVelocity.y);      // Weet of hij stijgt/daalt
 
-                foreach (var obs in nearbyObstacles)
-                {
-                    if (obs == null) continue;
-                    Vector3 relativePos = obs.transform.position - transform.position;
-                    if (Mathf.Abs(obs.MoveDirection.x) > 0.5f)
-                    {
-                        if (relativePos.x > 0 && relativePos.x < minXDist) { minXDist = relativePos.x; closestX = obs; }
-                    }
-                    else if (Mathf.Abs(obs.MoveDirection.z) > 0.5f)
-                    {
-                        if (relativePos.z > 0 && relativePos.z < minZDist) { minZDist = relativePos.z; closestZ = obs; }
-                    }
-                }
-
-                // --- Voeg Observaties Toe --- 
-                sensor.AddObservation(isGrounded);
-                sensor.AddObservation(transform.localPosition.y);
-                sensor.AddObservation(rBody.linearVelocity.y);
-                AddObstacleObservations(sensor, closestX);
-                AddObstacleObservations(sensor, closestZ);
+                // BELANGRIJK: RayPerceptionSensor3D voegt ook observaties toe.
+                // Totaal aantal hier (3) overeenkomen met 'Space Size' in Behavior Parameters in Unity.
             }
 
-            // Helper functie 
-            private void AddObstacleObservations(VectorSensor sensor, ObstacleMovement obstacle)
-            {
-                if (obstacle != null)
-                {
-                    sensor.AddObservation(true);
-                    Vector3 relativePos = obstacle.transform.position - transform.position;
-                    sensor.AddObservation(relativePos.x);
-                    sensor.AddObservation(relativePos.y);
-                    sensor.AddObservation(relativePos.z);
-                    sensor.AddObservation(obstacle.CurrentSpeed);
-                }
-                else
-                {
-                    sensor.AddObservation(false);
-                    sensor.AddObservation(0f);
-                    sensor.AddObservation(0f);
-                    sensor.AddObservation(0f);
-                    sensor.AddObservation(0f);
-                }
-            }
-
-            // Acties verwerken
+            // Verwerkt de acties die het netwerk heeft gekozen
             public override void OnActionReceived(ActionBuffers actions)
             {
-                // Continue Acties voor beweging
-                float moveX = actions.ContinuousActions[0]; // Index 0 = Horizontaal
-                float moveZ = actions.ContinuousActions[1]; // Index 1 = Verticaal/Vooruit
-                
+                // Continue acties (beweging)
+                float moveX = actions.ContinuousActions[0];
+                float moveZ = actions.ContinuousActions[1];
+
+                // Bewegen alleen als op de grond
                 if (isGrounded)
                 {
                     Vector3 moveSignal = new Vector3(moveX, 0, moveZ);
                     rBody.AddForce(moveSignal * moveForce);
-
                 }
 
-                // Discrete Actie voor springen
-                int jumpAction = actions.DiscreteActions[0]; // Index 0 = Springen branche
+                // Discrete actie (springen)
+                int jumpAction = actions.DiscreteActions[0];
                 if (jumpAction == 1 && isGrounded)
                 {
-                    rBody.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
+                    rBody.AddForce(Vector3.up * jumpForce, ForceMode.Impulse); // Springkracht toepassen
+                    AddReward(jumpReward); // Kleine beloning voor het proberen te springen
                 }
             }
 
-            // Collision afhandeling 
+            // Detecteert botsingen
             void OnCollisionEnter(Collision collision)
             {
+                // Straf en einde episode bij botsing met obstakel
                 if (collision.gameObject.CompareTag("Obstakel"))
                 {
                     SetReward(-1.0f);
-                    Debug.Log("Agent geraakt door obstakel! :( "); // Debug log
                     EndEpisode();
                 }
-                else if (collision.gameObject.CompareTag("Target"))
+                // Beloning en vernietig target bij botsing met target
+                else if (collision.gameObject.CompareTag(targetTag))
                 {
                     AddReward(1.0f);
-                    Debug.Log("Agent heeft een target gevangen! :) "); // Debug log
                     Destroy(collision.gameObject);
                 }
             }
 
             // === HELPER METHODEN ===
 
+            // Checkt of de agent op de grond staat via een SphereCast
             private bool CheckIfGrounded()
             {
-                // check of de agent op y 0.5 staat en of hij op een ground layer staat
-                // Debug.Log("CheckIfGrounded aanroepen!"); // Debug log
-                RaycastHit hit;
-                if (Physics.Raycast(transform.position, Vector3.down, out hit, 1.0f, groundLayer))
-                {
-                    Debug.Log("Agent is op de grond!"); // Debug log
-                    return true;
-                }
-                else
-                {
-                    Debug.Log("Agent is niet op de grond!"); // Debug log
-                    return false;
-                }
+                Vector3 sphereStart = transform.position + Vector3.up * groundCheckVerticalOffset;
+                // Geeft true terug als de sphere de groundLayer raakt binnen de check afstand
+                return Physics.SphereCast(
+                        sphereStart,
+                        groundCheckSphereRadius,
+                        Vector3.down,
+                        out RaycastHit _, // Details van de hit zijn niet nodig
+                        groundCheckDistance,
+                        groundLayer
+                    );
             }
 
-            private List<ObstacleMovement> FindNearbyObstacles() // Code ongewijzigd
-            {
-                ObstacleMovement[] allObstacles = FindObjectsOfType<ObstacleMovement>();
-                List<ObstacleMovement> nearby = new List<ObstacleMovement>();
-                foreach (var obs in allObstacles)
-                {
-                    if(obs == null) continue;
-                    if (Vector3.Distance(transform.position, obs.transform.position) < observationDistance)
-                    {
-                        nearby.Add(obs);
-                    }
-                }
-                return nearby;
-            }
-
-            // Check of de agent is gevallen 
+            // Checkt of de agent onder de val-drempel is gekomen
             private void CheckIfFallen()
             {
                 if (transform.localPosition.y < fallThreshold)
                 {
-                    SetReward(-1.0f); // Straf voor vallen
-                    Debug.Log("Agent is gevallen! :("); // Debug log
+                    SetReward(-1.0f); // Straf
                     EndEpisode();
                 }
             }
 
-            // Functie voor heuristische acties
+            // Berekent en geeft beloning voor nabijheid van het dichtstbijzijnde target
+            private void RewardProximityToTarget()
+            {
+                GameObject closestTarget = FindClosestTarget();
+                if (closestTarget != null)
+                {
+                    float currentDistance = Vector3.Distance(transform.position, closestTarget.transform.position);
+                    // Beloning is hoger als afstand kleiner is (max 1 / (1+0) = 1)
+                    float proximityReward = 1.0f / (1.0f + currentDistance);
+                    AddReward(proximityReward * distanceToTargetRewardScale); // Geschaalde beloning toevoegen
+                }
+            }
+
+            // Vindt het dichtstbijzijnde actieve GameObject met de targetTag
+            private GameObject FindClosestTarget()
+            {
+                GameObject[] targets = GameObject.FindGameObjectsWithTag(targetTag);
+                GameObject closest = null;
+                float minDistance = float.MaxValue;
+
+                foreach (GameObject target in targets)
+                {
+                    if (target == null) continue; // Veiligheidscheck
+
+                    float distance = Vector3.Distance(transform.position, target.transform.position);
+                    if (distance < minDistance)
+                    {
+                        minDistance = distance;
+                        closest = target;
+                    }
+                }
+                return closest; // Geeft null terug als er geen targets zijn
+            }
+
+            // Handelt handmatige besturing af voor testen (Heuristic mode)
             public override void Heuristic(in ActionBuffers actionsOut)
             {
-                // Debug.Log("Heuristic aanroepen!"); // Debug log
-
-                // Continue acties voor beweging (Indices 0 en 1) -> Naar ContinuousActions buffer
+                // Koppel toetsenbord input aan continue acties (beweging)
                 var continuousActionsOut = actionsOut.ContinuousActions;
-                continuousActionsOut[0] = Input.GetAxisRaw("Horizontal"); // Gebruik GetAxisRaw voor directe input
+                continuousActionsOut[0] = Input.GetAxisRaw("Horizontal");
                 continuousActionsOut[1] = Input.GetAxisRaw("Vertical");
 
-                // Discrete actie voor springen (Index 0) -> Naar DiscreteActions buffer
+                // Koppel Spatiebalk aan discrete actie (springen)
                 var discreteActionsOut = actionsOut.DiscreteActions;
-                discreteActionsOut.Clear(); // Belangrijk voor discrete acties!
-                discreteActionsOut[0] = Input.GetKey(KeyCode.Space) ? 1 : 0; // 1 als Spatie ingedrukt, anders 0
+                discreteActionsOut.Clear(); // Belangrijk!
+                discreteActionsOut[0] = Input.GetKey(KeyCode.Space) ? 1 : 0;
             }
+
         }
         ```
 
@@ -625,4 +618,70 @@ Dit component definieert hoe de agent communiceert met het ML-Agents framework (
 Als de Heuristic test succesvol is, heb je een werkende agent die klaar is om getraind te worden! De volgende stap is het opzetten van het configuratiebestand voor de training en het fine-tunen van de rewards.
 
 
+### 5. De Agent Trainen
 
+Nu de omgeving en de agent zijn ingesteld en getest, kunnen we de agent trainen met reinforcement learning.
+
+1.  **Voorbereiding:**
+    * Zorg dat je de ML-Agents Python package geïnstalleerd hebt in een geschikte Python-omgeving (bijv. via Conda of venv). Zie de [officiële ML-Agents installatiegids](https://github.com/Unity-Technologies/ml-agents/blob/develop/docs/Installation.md) als je dit nog niet gedaan hebt.
+    * Maak een configuratiebestand aan voor de training. Noem dit bestand `JumperAgent.yaml` en plaats het ergens in je project (of daarbuiten, zolang je het pad weet). De inhoud van dit bestand bepaalt hoe de agent leert. Zie de sectie "Configuratie (`JumperAgent.yaml`)" hieronder voor een voorbeeld.
+    * Open een terminal of command prompt en navigeer naar de map boven de locatie van je `JumperAgent.yaml` bestand, of zorg dat je het volledige pad naar het bestand bij de hand hebt.
+
+2.  **Start de Training:**
+    * Activeer je Python-omgeving waarin `mlagents` geïnstalleerd is.
+    * Voer het volgende commando uit in je terminal (vervang `pad/naar/JumperAgent.yaml` door het correcte pad naar jouw bestand):
+
+        ```bash
+        mlagents-learn pad/naar/JumperAgent.yaml --run-id=JumperAgent_TrainRun1
+        ```
+
+        * `mlagents-learn`: Het commando om de training te starten.
+        * `pad/naar/JumperAgent.yaml`: Het configuratiebestand met de hyperparameters.
+        * `--run-id=JumperAgent_TrainRun1`: Een unieke naam voor deze trainingsrun. Handig om verschillende experimenten uit elkaar te houden. Verander dit (bv. naar `..._TrainRun2`) als je opnieuw traint.
+
+    * Wacht tot de terminal de melding geeft: `[INFO] Listening on port 5004. Start training by pressing the Play button in the Unity Editor.`
+    * Ga terug naar de Unity Editor en druk op de **Play** knop.
+
+3.  **Training Observeren:**
+    * De training begint nu. Je zult zien dat de agent (of meerdere instanties, als je de scene hebt gedupliceerd) acties begint uit te voeren in de scene.
+    * In de terminal zie je periodiek statistieken verschijnen over de voortgang (zoals gemiddelde beloning, episode lengte).
+    * Gebruik **TensorBoard** voor gedetailleerde grafieken (zie volgende sectie).
+
+4.  **Stoppen en Resultaten:**
+    * De training stopt automatisch na het bereiken van `max_steps` (gedefinieerd in de YAML).
+    * Je kunt de training ook manueel stoppen door **Ctrl+C** in te drukken in de terminal. Het getrainde model (.onnx bestand) wordt dan opgeslagen in de `results/<run-id>/` map.
+    * Om het getrainde model te gebruiken, sleep je het `.onnx` bestand naar je Unity project en wijs je het toe aan het `Model` veld in de `Behavior Parameters` component van je agent. Zet `Behavior Type` dan op `Inference Only`.
+
+### 6. Configuratie (`JumperAgent.yaml`)
+
+Het `JumperAgent.yaml` bestand bevat de instellingen voor het trainingsalgoritme  en het neural network.
+
+```yaml
+behaviors:
+  JumperAgent:                # Moet EXACT overeenkomen met 'Behavior Name' in Unity!
+    trainer_type: ppo         # Het gebruikte RL algoritme (Proximal Policy Optimization)
+    hyperparameters:          # Instellingen die het leerproces beïnvloeden
+      batch_size: 1024        # Hoeveel ervaringen per update stap
+      buffer_size: 10240      # Hoeveel ervaringen onthouden we in totaal
+      learning_rate: 3.0e-4   # Hoe snel past het netwerk zich aan (0.0003)
+      beta: 5.0e-3            # Sterkte van de 'entropy regularization' (helpt exploratie)
+      epsilon: 0.2            # Hoeveel mag het nieuwe policy afwijken van het oude? (PPO clip)
+      lambd: 0.95             # Lambda voor Generalized Advantage Estimation (GAE)
+      num_epoch: 3            # Hoe vaak leren we van elke batch ervaringen?
+      learning_rate_schedule: linear # Hoe verandert de learning rate over tijd (hier: neemt lineair af)
+
+    network_settings:         # Instellingen voor het neurale netwerk zelf
+      normalize: false        # Normaliseer input observaties? (Hier uit, kan helpen bij variërende input)
+      hidden_units: 128       # Aantal neuronen per verborgen laag
+      num_layers: 2           # Aantal verborgen lagen
+      vis_encode_type: simple # Hoe worden visuele observaties (indien aanwezig) verwerkt? (Hier: simple, geen visuele input)
+
+    reward_signals:           # Definieert hoe beloningen worden verwerkt
+      extrinsic:              # De 'hoofd' beloning die we in C# code geven (AddReward/SetReward)
+        gamma: 0.99           # Discount factor (hoeveel waarde hechten we aan toekomstige beloningen?)
+        strength: 1.0         # Hoe zwaar telt deze beloning mee?
+
+    max_steps: 500000         # Totaal aantal simulatiestappen voor de training stopt
+    time_horizon: 64          # Hoeveel stappen per agent voor we data naar buffer sturen
+    summary_freq: 10000       # Hoe vaak schrijven we statistieken weg voor TensorBoard?
+```
