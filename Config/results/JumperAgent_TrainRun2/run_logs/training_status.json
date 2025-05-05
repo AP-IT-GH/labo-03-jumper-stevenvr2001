@@ -1,0 +1,65 @@
+{
+    "JumperAgent": {
+        "checkpoints": [
+            {
+                "steps": 649986,
+                "file_path": "results\\JumperAgent_TrainRun2\\JumperAgent\\JumperAgent-649986.onnx",
+                "reward": -0.3339093789120039,
+                "creation_time": 1746381156.8744266,
+                "auxillary_file_paths": [
+                    "results\\JumperAgent_TrainRun2\\JumperAgent\\JumperAgent-649986.pt"
+                ]
+            },
+            {
+                "steps": 999925,
+                "file_path": "results\\JumperAgent_TrainRun2\\JumperAgent\\JumperAgent-999925.onnx",
+                "reward": -0.2938907275023443,
+                "creation_time": 1746386651.6880248,
+                "auxillary_file_paths": [
+                    "results\\JumperAgent_TrainRun2\\JumperAgent\\JumperAgent-999925.pt"
+                ]
+            },
+            {
+                "steps": 1499970,
+                "file_path": "results\\JumperAgent_TrainRun2\\JumperAgent\\JumperAgent-1499970.onnx",
+                "reward": -0.23164284118561895,
+                "creation_time": 1746387957.7693508,
+                "auxillary_file_paths": [
+                    "results\\JumperAgent_TrainRun2\\JumperAgent\\JumperAgent-1499970.pt"
+                ]
+            },
+            {
+                "steps": 1999969,
+                "file_path": "results\\JumperAgent_TrainRun2\\JumperAgent\\JumperAgent-1999969.onnx",
+                "reward": -0.2873935066270282,
+                "creation_time": 1746389222.9163053,
+                "auxillary_file_paths": [
+                    "results\\JumperAgent_TrainRun2\\JumperAgent\\JumperAgent-1999969.pt"
+                ]
+            },
+            {
+                "steps": 2000046,
+                "file_path": "results\\JumperAgent_TrainRun2\\JumperAgent\\JumperAgent-2000046.onnx",
+                "reward": -0.2784925074662481,
+                "creation_time": 1746389222.9696124,
+                "auxillary_file_paths": [
+                    "results\\JumperAgent_TrainRun2\\JumperAgent\\JumperAgent-2000046.pt"
+                ]
+            }
+        ],
+        "final_checkpoint": {
+            "steps": 2000046,
+            "file_path": "results\\JumperAgent_TrainRun2\\JumperAgent.onnx",
+            "reward": -0.2784925074662481,
+            "creation_time": 1746389222.9696124,
+            "auxillary_file_paths": [
+                "results\\JumperAgent_TrainRun2\\JumperAgent\\JumperAgent-2000046.pt"
+            ]
+        }
+    },
+    "metadata": {
+        "stats_format_version": "0.3.0",
+        "mlagents_version": "0.28.0",
+        "torch_version": "1.7.1+cu110"
+    }
+}

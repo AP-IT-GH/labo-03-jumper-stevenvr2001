@@ -685,3 +685,16 @@ behaviors:
     time_horizon: 64          # Hoeveel stappen per agent voor we data naar buffer sturen
     summary_freq: 10000       # Hoe vaak schrijven we statistieken weg voor TensorBoard?
 ```
+
+### 7. Analyse van de Trainingsresultaten
+
+* **`Environment/Cumulative Reward` (Gemiddelde Beloning per Episode):**
+    Deze grafiek toont een duidelijke en sterke stijgende trend. De beloning klimt van rond de nul naar een stabiele waarde van ongeveer 8 tot 10 na 2 miljoen stappen. Dit toont duidelijk aan dat de agent nu succesvol leert om zijn doelen (targets pakken, straffen vermijden) te behalen.
+
+* **`Environment/Episode Length` (Gemiddelde Episodelengte):**
+    Ook hier is een sterke verbetering zichtbaar. De gemiddelde lengte per episode stijgt van rond de 50 stappen naar een gemiddelde van 100 tot 120 stappen  tegen het einde van de training. De agent leert dus duidelijk om langer te overleven en de taak vol te houden.
+
+* **`Losses/Policy Loss` en `Losses/Value Loss`:**
+    Na de initiële daling blijven de losses nu stabieler op een relatief laag niveau terwijl de reward stijgt. Dit is een gezond teken en geeft aan dat het netwerk convergeert naar een effectief beleid zonder grote instabiliteit.
+
+![training screenshot tensorboard](Firefox_Screenshot_2025-05-05T00-04-01.043Z.png)
